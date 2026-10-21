@@ -1,0 +1,463 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Struk Patungan</title>
+<style>
+/*
+  Layout concept: the app IS a warung receipt (struk kasir) — a tall paper
+  slip with a torn/perforated top edge, dashed item rules, and a running
+  total. People are "items" on the receipt; splitting is literally
+  dividing the printed total across names stamped at the bottom.
+*/
+:root{
+  /* color */
+  --paper:      #efe9dd;
+  --paper-line: #d9cfb8;
+  --ink:        #2b2420;
+  --ink-soft:   #6f6354;
+  --accent:     #0e6e5d;   /* petrol teal — the "paid" stamp ink */
+  --accent-soft:#0e6e5d1a;
+  --warn:       #b2491c;   /* unpaid stamp ink */
+  --warn-soft:  #b2491c1a;
+  --card:       #f7f3e8;
+  color-scheme: light;
+
+  /* type */
+  --font-display: 'Fraunces', Georgia, 'Noto Serif', serif;
+  --font-body:    'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-mono:    'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:      #211d1a;
+    --paper-line: #3a332b;
+    --ink:        #ece4d6;
+    --ink-soft:   #a99d89;
+    --accent:     #4fc9ab;
+    --accent-soft:#4fc9ab22;
+    --warn:       #e3895a;
+    --warn-soft:  #e3895a22;
+    --card:       #2a2521;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:      #211d1a;
+  --paper-line: #3a332b;
+  --ink:        #ece4d6;
+  --ink-soft:   #a99d89;
+  --accent:     #4fc9ab;
+  --accent-soft:#4fc9ab22;
+  --warn:       #e3895a;
+  --warn-soft:  #e3895a22;
+  --card:       #2a2521;
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:15px;
+  line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+  padding-block:32px;
+  min-height:100%;
+}
+h1,h2,h3{font-family:var(--font-display); font-weight:600; text-wrap:balance; margin:0}
+.mono{font-family:var(--font-mono); font-variant-numeric:tabular-nums}
+
+.wrap{max-width:460px; margin:0 auto}
+
+.eyebrow{
+  text-align:center;
+  font-family:var(--font-mono);
+  font-size:11px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  margin-bottom:6px;
+}
+.title{
+  text-align:center;
+  font-size:30px;
+  margin-bottom:4px;
+}
+.subtitle{
+  text-align:center;
+  font-size:13px;
+  color:var(--ink-soft);
+  margin-bottom:26px;
+}
+
+/* --- receipt card --- */
+.receipt{
+  background:var(--card);
+  border-radius:2px;
+  box-shadow:0 1px 2px #0000000d, 0 12px 28px -18px #00000040;
+  position:relative;
+  padding:28px 22px 24px;
+}
+.receipt::before{
+  content:"";
+  display:block;
+  position:absolute;
+  top:-9px; left:0; right:0; height:18px;
+  background:
+    radial-gradient(circle at 10px 9px, transparent 9px, var(--paper) 9.5px) -10px 0/20px 18px repeat-x;
+}
+.field-row{display:flex; flex-direction:column; gap:6px; margin-bottom:16px; min-width:0}
+.field-row label{
+  font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-soft); font-weight:600;
+}
+.money-input{
+  display:flex; align-items:center; gap:8px;
+  border:none; border-bottom:1.5px dashed var(--paper-line);
+  padding-bottom:8px;
+}
+.money-input span{font-family:var(--font-mono); color:var(--ink-soft); font-size:15px}
+.money-input input{
+  flex:1; min-width:0; border:none; background:transparent; color:var(--ink);
+  font-family:var(--font-mono); font-size:19px; font-variant-numeric:tabular-nums;
+  outline:none;
+}
+.money-input input::placeholder{color:var(--ink-soft); opacity:.6}
+
+.two-col{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+
+.divider{
+  border:none; border-top:1.5px dashed var(--paper-line);
+  margin:20px 0;
+}
+
+/* people list */
+.people-head{
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-bottom:12px;
+}
+.people-head h2{font-size:14px; letter-spacing:.06em; text-transform:uppercase; font-family:var(--font-body); font-weight:700}
+.people-head .count{font-family:var(--font-mono); font-size:12px; color:var(--ink-soft)}
+
+.person{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 0;
+  border-bottom:1px dashed var(--paper-line);
+}
+.person:last-child{border-bottom:none}
+.person .name-input{
+  flex:1; min-width:0; border:none; background:transparent; color:var(--ink);
+  font-family:var(--font-body); font-size:14.5px; outline:none;
+  padding:4px 0;
+}
+.person .name-input::placeholder{color:var(--ink-soft); opacity:.6}
+.person .share{
+  font-family:var(--font-mono); font-size:13px; color:var(--ink-soft);
+  min-width:84px; text-align:right; font-variant-numeric:tabular-nums;
+}
+.paid-toggle{
+  flex-shrink:0;
+  border:1.3px solid var(--paper-line);
+  background:transparent;
+  color:var(--ink-soft);
+  font-family:var(--font-mono);
+  font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+  padding:5px 9px;
+  border-radius:3px;
+  cursor:pointer;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.paid-toggle[data-paid="true"]{
+  border-color:var(--accent); color:var(--accent); background:var(--accent-soft);
+}
+.remove-person{
+  flex-shrink:0;
+  border:none; background:transparent; color:var(--ink-soft);
+  font-size:17px; line-height:1; cursor:pointer; padding:2px 4px;
+}
+.remove-person:hover{color:var(--warn)}
+
+.add-person{
+  display:flex; align-items:center; gap:6px;
+  margin-top:12px;
+  border:1.3px dashed var(--paper-line);
+  background:transparent; color:var(--ink-soft);
+  font-family:var(--font-body); font-size:13px; font-weight:600;
+  padding:9px 12px; border-radius:4px; width:100%;
+  cursor:pointer; justify-content:center;
+  transition:border-color .15s, color .15s;
+}
+.add-person:hover{border-color:var(--accent); color:var(--accent)}
+
+/* totals */
+.total-row{
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:4px 0;
+  font-size:13.5px;
+  color:var(--ink-soft);
+}
+.total-row span:last-child{font-family:var(--font-mono); font-variant-numeric:tabular-nums}
+.grand-total{
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-top:10px; padding-top:14px;
+  border-top:1.5px solid var(--ink);
+}
+.grand-total .label{font-family:var(--font-display); font-size:16px; font-weight:600}
+.grand-total .value{font-family:var(--font-mono); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums}
+
+.status-strip{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:18px; padding:12px 14px;
+  border-radius:4px;
+  font-family:var(--font-mono); font-size:12.5px;
+  background:var(--warn-soft); color:var(--warn);
+  transition:background .2s, color .2s;
+}
+.status-strip[data-complete="true"]{background:var(--accent-soft); color:var(--accent)}
+.status-strip b{font-variant-numeric:tabular-nums}
+
+.barcode{
+  margin:22px auto 2px; height:30px; width:70%;
+  background:repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 5px, var(--ink) 5px 6px, transparent 6px 10px);
+  opacity:.55;
+}
+.foot-note{
+  text-align:center; font-family:var(--font-mono); font-size:10.5px;
+  letter-spacing:.08em; color:var(--ink-soft); margin-top:8px; text-transform:uppercase;
+}
+
+select.mode{
+  width:100%; appearance:none; -webkit-appearance:none;
+  background:transparent; border:none; border-bottom:1.5px dashed var(--paper-line);
+  color:var(--ink); font-family:var(--font-body); font-size:14px; font-weight:600;
+  padding:8px 0; outline:none; cursor:pointer;
+}
+
+@media (max-width:360px){
+  .two-col{grid-template-columns:1fr}
+}
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<div class="wrap">
+  <div class="eyebrow">Warkop Digital</div>
+  <h1 class="title">Struk Patungan</h1>
+  <p class="subtitle">Masukin total tagihan, siapa aja ikut, beres.</p>
+
+  <div class="receipt">
+    <div class="field-row">
+      <label for="totalBill">Total tagihan</label>
+      <div class="money-input">
+        <span>Rp</span>
+        <input id="totalBill" class="mono" inputmode="numeric" placeholder="0" />
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="field-row">
+        <label for="serviceFee">Pajak &amp; servis (%)</label>
+        <div class="money-input">
+          <input id="serviceFee" class="mono" inputmode="decimal" placeholder="0" value="0" />
+          <span>%</span>
+        </div>
+      </div>
+      <div class="field-row">
+        <label for="splitMode">Cara bagi</label>
+        <select id="splitMode" class="mode">
+          <option value="even">Rata semua</option>
+          <option value="custom">Porsi beda-beda</option>
+        </select>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="people-head">
+      <h2>Yang Patungan</h2>
+      <span class="count" id="peopleCount">0 orang</span>
+    </div>
+    <div id="peopleList"></div>
+    <button class="add-person" id="addPersonBtn" type="button">+ Tambah orang</button>
+
+    <hr class="divider">
+
+    <div id="customNote" class="total-row" style="display:none">
+      <span>Mode porsi: ketik angka di kolom kanan tiap nama (mis. 1, 1.5, 2)</span>
+    </div>
+
+    <div class="total-row">
+      <span>Subtotal makanan/minuman</span>
+      <span class="mono" id="sumSubtotal">Rp 0</span>
+    </div>
+    <div class="total-row">
+      <span>Pajak &amp; servis</span>
+      <span class="mono" id="sumFee">Rp 0</span>
+    </div>
+    <div class="grand-total">
+      <span class="label">Total per orang (rata²)</span>
+      <span class="value" id="sumPerHead">Rp 0</span>
+    </div>
+
+    <div class="status-strip" id="statusStrip" data-complete="false">
+      <span>Sudah kebayar</span>
+      <b id="collectedAmount">Rp 0 / Rp 0</b>
+    </div>
+
+    <div class="barcode"></div>
+    <div class="foot-note">terima kasih sudah patungan</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var people = [
+    { id: 1, name: "", share: 1, paid: false },
+    { id: 2, name: "", share: 1, paid: false }
+  ];
+  var nextId = 3;
+
+  var totalBillEl = document.getElementById('totalBill');
+  var serviceFeeEl = document.getElementById('serviceFee');
+  var splitModeEl = document.getElementById('splitMode');
+  var peopleListEl = document.getElementById('peopleList');
+  var peopleCountEl = document.getElementById('peopleCount');
+  var addPersonBtn = document.getElementById('addPersonBtn');
+  var customNoteEl = document.getElementById('customNote');
+
+  var sumSubtotalEl = document.getElementById('sumSubtotal');
+  var sumFeeEl = document.getElementById('sumFee');
+  var sumPerHeadEl = document.getElementById('sumPerHead');
+  var statusStripEl = document.getElementById('statusStrip');
+  var collectedAmountEl = document.getElementById('collectedAmount');
+
+  function formatRp(n){
+    if (!isFinite(n)) n = 0;
+    n = Math.round(n);
+    var neg = n < 0;
+    n = Math.abs(n);
+    var s = String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return (neg ? "-Rp " : "Rp ") + s;
+  }
+
+  function parseNum(v){
+    var n = parseFloat(String(v).replace(/\./g,'').replace(',', '.'));
+    return isFinite(n) ? n : 0;
+  }
+
+  function renderPeople(){
+    peopleListEl.innerHTML = "";
+    var isCustom = splitModeEl.value === 'custom';
+    customNoteEl.style.display = isCustom ? 'flex' : 'none';
+
+    var totalShares = people.reduce(function(a,p){ return a + (isCustom ? (p.share || 0) : 1); }, 0) || 1;
+    var bill = parseNum(totalBillEl.value);
+    var fee = parseNum(serviceFeeEl.value);
+    var grand = bill * (1 + fee/100);
+
+    people.forEach(function(p){
+      var row = document.createElement('div');
+      row.className = 'person';
+
+      var nameInput = document.createElement('input');
+      nameInput.className = 'name-input';
+      nameInput.placeholder = 'Nama';
+      nameInput.value = p.name;
+      nameInput.addEventListener('input', function(){
+        p.name = nameInput.value;
+      });
+
+      var row2;
+      if (isCustom){
+        row2 = document.createElement('input');
+        row2.className = 'name-input mono';
+        row2.style.maxWidth = '54px';
+        row2.style.flex = '0 0 auto';
+        row2.style.textAlign = 'right';
+        row2.inputMode = 'decimal';
+        row2.value = p.share;
+        row2.addEventListener('input', function(){
+          p.share = parseNum(row2.value);
+          update();
+        });
+      } else {
+        row2 = document.createElement('span');
+        row2.className = 'share mono';
+        var portion = (isCustom ? (p.share||0) : 1) / totalShares;
+        row2.textContent = formatRp(grand * portion);
+      }
+
+      var paidBtn = document.createElement('button');
+      paidBtn.type = 'button';
+      paidBtn.className = 'paid-toggle';
+      paidBtn.setAttribute('data-paid', p.paid ? 'true' : 'false');
+      paidBtn.textContent = p.paid ? 'Lunas' : 'Belum';
+      paidBtn.addEventListener('click', function(){
+        p.paid = !p.paid;
+        update();
+      });
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-person';
+      removeBtn.setAttribute('aria-label', 'Hapus orang');
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', function(){
+        people = people.filter(function(x){ return x.id !== p.id; });
+        update();
+      });
+
+      row.appendChild(nameInput);
+      row.appendChild(row2);
+      row.appendChild(paidBtn);
+      row.appendChild(removeBtn);
+      peopleListEl.appendChild(row);
+    });
+
+    peopleCountEl.textContent = people.length + (people.length === 1 ? ' orang' : ' orang');
+  }
+
+  function update(){
+    var isCustom = splitModeEl.value === 'custom';
+    var bill = parseNum(totalBillEl.value);
+    var feePct = parseNum(serviceFeeEl.value);
+    var feeAmt = bill * feePct / 100;
+    var grand = bill + feeAmt;
+
+    sumSubtotalEl.textContent = formatRp(bill);
+    sumFeeEl.textContent = formatRp(feeAmt);
+
+    var n = people.length || 1;
+    var totalShares = isCustom
+      ? (people.reduce(function(a,p){ return a + (p.share || 0); }, 0) || 1)
+      : n;
+    var avg = grand / totalShares * (isCustom ? (totalShares / n) : 1);
+    // simplest honest "rata-rata per orang" figure:
+    var perHeadAvg = grand / n;
+    sumPerHeadEl.textContent = formatRp(perHeadAvg);
+
+    var collected = 0;
+    people.forEach(function(p){
+      var portion = isCustom ? (p.share || 0) / totalShares : 1 / n;
+      if (p.paid) collected += grand * portion;
+    });
+    collectedAmountEl.textContent = formatRp(collected) + ' / ' + formatRp(grand);
+    var complete = people.length > 0 && people.every(function(p){ return p.paid; }) && grand > 0;
+    statusStripEl.setAttribute('data-complete', complete ? 'true' : 'false');
+    statusStripEl.querySelector('span').textContent = complete ? 'Semua udah bayar' : 'Sudah kebayar';
+
+    renderPeople();
+  }
+
+  addPersonBtn.addEventListener('click', function(){
+    people.push({ id: nextId++, name: "", share: 1, paid: false });
+    update();
+  });
+
+  totalBillEl.addEventListener('input', update);
+  serviceFeeEl.addEventListener('input', update);
+  splitModeEl.addEventListener('change', update);
+
+  update();
+})();
+</script>
